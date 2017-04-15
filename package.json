@@ -1,0 +1,15 @@
+{
+    "name": "concierge/postgresql",
+    "version": "1.0",
+    "description": "PostgreSQL configuration service for concierge",
+    "license": "SEE LICENSE IN LICENSE",
+    "author": "Dion Woolley <woolley.dion@gmail.com>",
+    "repository": "https://github.com/concierge/postgresql",
+    "dependencies": {
+        "pg": ">=6.1.5",
+        "pg-pool": ">=1.7.1",
+        "sql-template-strings": ">=2.2.2",
+        "co": ">=4.6.0"
+    }
+
+}
