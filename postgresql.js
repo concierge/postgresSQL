@@ -11,7 +11,7 @@
 
 const Pool = require('pg-pool'),
     SQL = require('sql-template-strings'),
-    co = require('co'),
+    deasync = require('deasync'),
     path = require('path'),
     url = require('url');
 
@@ -44,24 +44,36 @@ class PostgreSQLService {
             console.error($$ `database screwed up, error:"${error.message}"`);
         });
 
-        pool.connect().then(client => {
-            client.query('CREATE TABLE IF NOT EXISTS module (id text PRIMARY KEY, config json NOT NULL)').then(res => {
-                    client.release();
-                })
-                .catch(e => {
-                    client.release();
-                    console.error($$ `database screwed up, error:"${e.message}"`);
-                });
+        let done = false,
+            done2 = false;
 
-            client.query('CREATE INDEX id_index ON module (id)').then(res => {
-                    client.release();
-                })
-                .catch(e => {
-                    client.release();
-                    console.error($$ `database screwed up, error:"${e.message}"`);
-                });
+        pool.connect((err, client, cb) => {
+            if (err) {
+                console.error($$ `database screwed up, error:"${err.message}"`);
+                cb(err);
+                done = true;
+            }
+
+            client.query('CREATE TABLE IF NOT EXISTS module (id text PRIMARY KEY, config json NOT NULL)', (err, res) => {
+                cb();
+                if (err) {
+                    console.error($$ `database screwed up, error:"${err.message}"`);
+                }
+                done = true;
+            });
+
+            client.query('CREATE INDEX IF NOT EXISTS id_index ON module (id)', (err, res) => {
+                cb();
+                if (err) {
+                    console.error($$ `database screwed up, error:"${err.message}"`);
+                }
+                done = true;
+            });
+
         });
+
         global.currentPlatform.config.setInterceptor(this);
+        deasync.loopWhile(() => { return !done && !done2; });
     }
 
     _pathFromDescriptor(descriptor) {
@@ -82,26 +94,38 @@ class PostgreSQLService {
 
     loadConfig(descriptor) {
         descriptor = this._pathFromDescriptor(descriptor);
-        co(function*() {
-            let client = yield pool.connect(),
-                output = {};
 
-            try {
-                let res = yield client.query(SQL `SELECT config FROM module WHERE id = ${descriptor}`);
-                console.log(res);
-                if (res.rows.length === 0) {
-                    output = {};
-                } else if (res.rows.length === 1) {
-                    output = JSON.parse(res.rows[0]);
-                } else {
-                    console.error($$ `The number of rows returned for the query: "${res.command}", was greater than 1`);
-                }
-            } finally {
-                client.release();
-                return output;
+        let done = false,
+            output = {};
+
+        pool.connect((err, client, cb) => {
+            if (err) {
+                console.error($$ `database screwed up, error:"${err.message}"`);
+                cb(err);
+                done = true;
             }
 
-        }).catch(e => console.error($$ `database screwed up, error:"${e.message}"`));
+            client.query(SQL `SELECT config FROM module WHERE id = ${descriptor}`, (err, res) => {
+                cb();
+                if (err) {
+                    console.error($$ `database screwed up, error:"${err.message}"`);
+                    done = true;
+                }
+                if (res.rows.length === 0) {
+                    done = true;
+                } else if (res.rows.length === 1) {
+                    output = res.rows[0];
+                    done = true;
+                } else {
+                    console.error($$ `The number of rows returned for the query: "${res.command}", was greater than 1`);
+                    done = true;
+                }
+            });
+
+        });
+
+        deasync.loopWhile(() => { return !done; });
+        return output;
     }
 
     saveConfig(descriptor, config) {
@@ -111,16 +135,23 @@ class PostgreSQLService {
             return value === null || typeof value === 'object' && Object.keys(value).length === 0 ? void(0) : value;
         }, 4);
         if (!!data && data !== 'undefined') { // there is data to write
-            pool.connect().then(client => {
-                client.query(SQL `INSERT INTO module (id, config) VALUES (${descriptor}, ${data}) ON CONFLICT (id) DO UPDATE SET config = ${data}`).then(res => {
-                        client.release();
-                    })
-                    .catch(e => {
-                        client.release();
-                        console.error($$ `database screwed up, error:"${e.message}"`);
-                    });
+            let done = false;
+            pool.connect((err, client, cb) => {
+                if (err) {
+                    console.error($$ `database screwed up, error:"${err.message}"`);
+                    cb(err);
+                    done = true;
+                }
+
+                client.query(SQL `INSERT INTO module (id, config) VALUES (${descriptor}, ${data}) ON CONFLICT (id) DO UPDATE SET config = ${data}`, (err, res) => {
+                    cb();
+                    done = true;
+                });
             });
+            deasync.loopWhile(() => { return !done; });
         }
+
+
     }
 }
 

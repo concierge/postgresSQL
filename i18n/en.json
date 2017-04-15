@@ -1,5 +1,5 @@
 {
     "Failed to connect to database, error: \"${0}\"": "Failed to connect to database, error: \"${0}\"",
-    "database screwed up, error\"${0}\"": "database screwed up, error\"${0}\"",
+    "database screwed up, error:\"${0}\"": "database screwed up, error:\"${0}\"",
     "The number of rows returned for the query: \"${0}\", was greater than 1": "The number of rows returned for the query: \"${0}\", was greater than 1"
 }
