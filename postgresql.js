@@ -89,7 +89,7 @@ class PostgreSQLService {
 
     unload() {
         pool.end();
-        global.currentPlatform.config.setInterceptor(this);
+        global.currentPlatform.config.setInterceptor(null);
     }
 
     loadConfig(descriptor) {
